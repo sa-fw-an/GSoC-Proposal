@@ -1,258 +1,235 @@
 <!--markdownlint-disable-->
-# Music Blocks 4 Program Engine
+### Project Priorities
 
-## Program Representation Architecture
+To ensure successful completion of this GSoC project, I've analyzed the project objectives and categorized implementation priorities based on their importance to Music Blocks users:
 
-### AST Design
+#### Fundamental Priorities (Must Have)
+1. **Create a usable block execution system** - Users must be able to arrange blocks and have them correctly execute in sequence
+2. **Support basic programming constructs** - Variables, loops, conditionals that work reliably
+3. **Enable musical output** - Play notes and sequences with accurate timing
+4. **Implement error reporting** - Provide clear feedback when programs have issues
 
-The Program Engine requires a carefully designed Abstract Syntax Tree structure that separates execution concerns from presentation concerns:
+These core capabilities form the essential foundation of Music Blocks and will be my primary focus to ensure a successful project outcome.
 
-#### Node Class Hierarchy and Instance Attributes
+#### Secondary Priorities (Should Have)
+1. **Support concurrent execution** - Allow multiple stacks to run simultaneously
+2. **Enable function/procedure blocks** - Support reusable code with parameters
+3. **Implement debugging capabilities** - Stepping, breakpoints, and state inspection
+4. **Optimize performance** - Ensure smooth execution on typical hardware
 
-Each AST node type will have specific attributes relevant to its role in program execution:
+These capabilities significantly enhance the user experience and I'm committed to implementing them after the fundamentals are solid.
 
-- **Base `ASTNode`**:
-  - `id: string` - Unique identifier for referencing
-  - `nodeType: NodeType` - Enum identifying the node's category
-  - `metadata: ExecutionMetadata` - Contains execution-specific information (line numbers, source positions for error reporting)
-  - `_parent: ASTNode | null` - Reference to parent node
-  - Virtual methods: `validate()`, `clone()`, `toJSON()`
-   
-- **`BlockNode` extends `ASTNode`**:
-  - `childNodes: ASTNode[]` - Ordered list of child nodes
-  - `socketMap: Map<string, ASTNode>` - Named connections to other nodes
-  - `blockType: BlockType` - Specific type (loop, conditional, etc.)
-  - `branchTargets: Map<string, ASTNode>` - References to branch targets (for loops/conditionals)
-  - Methods: `addChild()`, `removeChild()`, `getSocketNode()`, `setSocketNode()`
-   
-- **`StatementNode` extends `ASTNode`**:
-  - `operationType: OperationType` - Specific operation to perform
-  - `parameters: Map<string, ArgumentNode>` - Named parameters for the operation
-  - `returnType: ValueType | null` - Expected return type, if any
-  - Methods: `setParameter()`, `getParameter()`, `validateParameters()`
-   
-- **`ArgumentNode` extends `ASTNode`**:
-  - `dataType: ValueType` - Type of data this argument represents
-  - `isLiteral: boolean` - Whether node is a literal value or expression
-  - `referenceTarget: string | null` - For variable references, the variable name
-  - Methods: `evaluate()`, `isCompatibleWith(targetType: ValueType)`
+#### Tertiary Priorities (Nice to Have)
+1. **Advanced musical features** - Complex timing, polyrhythms, musical transformations
+2. **Object-oriented capabilities** - Object creation and method invocation
+3. **Event system** - Sophisticated event triggering and handling
+4. **Performance analysis tools** - Runtime statistics and bottleneck identification
 
-#### AST vs Program Tree Separation
+While valuable additions, these will be pursued only after higher-priority items are complete and functioning well.
 
-The AST will be explicitly separated from the UI program tree:
-   
-- AST contains only execution-relevant information
-- UI concerns (workspace coordinates, block colors, visual connections) are stored separately
-- Translation layer maintains bidirectional mapping between AST nodes and visual blocks
-- When visual blocks are manipulated, corresponding AST changes are validated before being applied
+   ##### AST vs Program Tree Separation
 
-#### Node Connectivity and Validation
+   The AST will be explicitly separated from the UI program tree:
+      
+   - AST contains only execution-relevant information
+   - UI concerns (workspace coordinates, block colors, visual connections) are stored separately
+   - Translation layer maintains bidirectional mapping between AST nodes and visual blocks
+   - When visual blocks are manipulated, corresponding AST changes are validated before being applied
 
-Connectivity between nodes will be managed through:
-   
-- Type validation system that verifies compatible connections
-- Socket interface definitions specifying allowed connections
-- Pre-connection validation hooks that run before nodes are connected
-- Post-connection validation to ensure structural integrity
-   
-Example validation rules:
-- Value type compatibility (number cannot connect to boolean socket)
-- Structural constraints (loop body must be a block)
-- Semantic constraints (variable must be defined before use)
+   ##### Node Connectivity and Validation
 
-#### Change Monitoring
+   Connectivity between nodes will be managed through:
+      
+   - Type validation system that verifies compatible connections
+   - Socket interface definitions specifying allowed connections
+   - Pre-connection validation hooks that run before nodes are connected
+   - Post-connection validation to ensure structural integrity
+      
+   Example validation rules:
+   - Value type compatibility (number cannot connect to boolean socket)
+   - Structural constraints (loop body must be a block)
+   - Semantic constraints (variable must be defined before use)
 
-AST modifications will be monitored through:
-   
-- Observer pattern implementation with before/after change events
-- Transaction-based changes allowing atomic operations and rollback
-- Change record maintaining history for undo/redo operations
-- Validation hooks running on each change to maintain AST integrity
+   ##### Change Monitoring
 
-## Technical Interfaces
+   AST modifications will be monitored through:
+      
+   - Observer pattern implementation with before/after change events
+   - Transaction-based changes allowing atomic operations and rollback
+   - Change record maintaining history for undo/redo operations
+   - Validation hooks running on each change to maintain AST integrity
 
-### Framework Neutrality and Extension Points
+## Implementation Plan
 
-The Program Engine will be designed as a framework-neutral system with clear extension points:
+My approach prioritizes delivering a working system for users first, then adding more advanced capabilities:
 
-1. **Instruction Execution Strategy**:
-   - Operation executors are registered through a factory system
-   - Custom operations can be registered without modifying core engine
-   - Operation implementations are decoupled from operation definitions
-   
-2. **Execution Context Providers**:
-   - External systems (audio, graphics, I/O) expose capabilities through context providers
-   - Engine accesses these capabilities through abstract interfaces
-   - Example: Audio operations simply call methods on IAudioContext without knowing implementation details
+### Phase 1: Core Execution Model (Fundamental)
+I'll build the basic execution system that can:
+- Execute blocks in sequence
+- Process mathematical operations
+- Store and retrieve variable values
+- Handle simple control structures (if/else, loops)
 
-3. **Node Type Extension System**:
-   - New AST node types can be registered at runtime
-   - Node type definitions include validation rules and execution behaviors
-   - Custom serialization/deserialization can be provided for each node type
+From a user perspective, this means being able to:
+- Create basic programs by connecting blocks
+- Store values in variables and use them in calculations
+- Control program flow with conditions and repetition
+- Get results from simple programs reliably
 
-### Event-Based Communication
+The technical implementation will include:
+- A simple but extensible AST structure 
+- Basic interpreter for sequential execution
+- Variable storage and retrieval system
+- Validation to prevent obvious errors
 
-Communication between the Program Engine and external systems will use:
+### Phase 2: Music Block Foundations (Fundamental)
+Building on the core system, I'll implement:
+- Note playing capability
+- Timing mechanisms for musical sequences
+- Basic musical parameters (pitch, duration, volume)
 
-- Event emitter pattern for asynchronous notifications
-- Structured message formats for data exchange
-- Subscription model allowing targeted event reception
+Users will now be able to:
+- Create simple melodies by connecting note blocks
+- Control the timing of musical sequences
+- Adjust basic properties of musical notes
 
-Key event categories:
-- Execution lifecycle events (start, pause, resume, stop)
-- State change events (variable updates, context changes)
-- Error and warning events (runtime errors, validation issues)
-- Resource request events (audio playback, graphics rendering)
+### Phase 3: Advanced Program Structures (Secondary)
+Next, I'll expand the system to include:
+- Function/procedure blocks with parameters
+- Nested control structures
+- Enhanced error reporting and recovery
 
-### State Access Interfaces
+This will enable users to:
+- Create reusable musical patterns
+- Build more complex logical structures
+- Receive helpful feedback when things go wrong
 
-Program state will be accessible through:
+### Phase 4: Concurrency and Timing (Secondary)
+With the basics solid, I'll implement:
+- Parallel execution capabilities
+- Synchronization between parallel threads
+- Enhanced timing control for musical precision
 
-- Read-only snapshots of current execution context
-- Transaction-based write operations
-- Query API for examining variables and execution state
-- Observation hooks for state changes
+Users will now be able to:
+- Create multi-part musical compositions
+- Synchronize different musical elements
+- Build more sophisticated musical structures
 
-## State Manager
+### Phase 5: Refinement and Extensions (Tertiary)
+If time permits, I'll work on:
+- Debugging tools for inspecting program execution
+- Performance optimizations for complex programs
+- Advanced musical capabilities
 
-The state manager will provide sophisticated variable management and execution state tracking:
+These will enhance the user experience by:
+- Making it easier to understand and fix problems
+- Enabling more complex compositions to run smoothly
+- Providing more expressive musical capabilities
 
-### Variable Management Architecture
+### Implementation Phases
 
-- **Multi-Scoped Variable System**:
-  - Hierarchical scope chain (global, function, block, loop iteration)
-  - Each scope implemented as immutable record for consistency
-  - Variable lookup follows scope chain from innermost to outermost
-  - Shadow variables in inner scopes can mask outer scope variables
+Based on the prioritized needs of Music Blocks users, my implementation will proceed through these phases:
 
-- **Explicit vs Implicit Variable Declaration**:
-  - Explicit declaration through variable creation blocks
-  - Implicit declaration when writing to undefined variables (configurable behavior)
-  - Type inference for implicitly declared variables
-  - Runtime type checking with configurable strictness levels
+#### Phase 1: Fundamental User Experience
+- Implement the core execution model for basic block sequencing
+- Create the variable and mathematics system
+- Build foundational music block capabilities
 
-- **Variable Lifecycle Management**:
-  - Creation events dispatched when variables enter scope
-  - Update events for value changes
-  - Disposal events when variables go out of scope
-  - Reference counting for complex values (e.g., lists, objects)
+#### Phase 2: Programming Constructs
+- Add control structures (loops, conditionals)
+- Implement function definition and calling
+- Enhance error reporting for user feedback
 
-### Execution Context Implementation
+#### Phase 3: Musical Capabilities
+- Enhance note and musical pattern support
+- Implement timing and synchronization
+- Add music-specific operation blocks
 
-- **Context Frames**:
-  - Stack of execution frames representing current call hierarchy
-  - Each frame contains local scope variables and execution state
-  - Return value slot for capturing function results
-  - Exception slot for error propagation
+#### Phase 4: Advanced Features
+- Build concurrent execution capabilities
+- Implement debugging and inspection tools
+- Optimize performance for complex programs
 
-- **Context Snapshots and Restoration**:
-  - Support for capturing execution state at any point
-  - Ability to restore execution from saved snapshots
-  - Differential snapshots for efficient state saving
-  - Serializable context for persistent storage
+#### Phase 5: Refinement and Extensions
+- Address feedback from user testing
+- Enhance documentation and examples
+- Add extended musical capabilities
 
-- **Execution Tracking**:
-  - Current instruction pointer for each active thread
-  - Call stack representing nested function calls
-  - Execution history for debugging and time-travel
-  - Performance profiling data collection
+## Implementation Milestones
 
-### Thread-Local vs Shared State
+I've developed these milestones to ensure I deliver the fundamental capabilities first, with clear user-focused success criteria:
 
-- **Thread-Local Variables**:
-  - Each execution thread maintains independent local variables
-  - Thread-local contexts prevent race conditions
-  - Copy-on-write semantics for derived variables
+### Milestone 1: Basic Block Execution (Weeks 1-3)
+**User Outcome**: Ability to execute simple sequences of blocks
 
-- **Shared State Management**:
-  - Global variables accessible across all threads
-  - Atomic operations for concurrent access to shared variables
-  - Mutex mechanisms for critical sections
-  - Transactional updates for composite operations
+**Deliverables**:
+- Basic block representation system
+- Sequential execution of statements
+- Simple variable management
+- Mathematical operations
 
-### State Observability
+**Evaluation Criteria**:
+- Can create and run a program that calculates values
+- Variables can store and retrieve different data types
+- Sequential blocks execute in the correct order
+- Simple programs produce expected results
 
-- **Variable Watching**:
-  - Register watches on specific variables or patterns
-  - Immediate notification of value changes
-  - Expression watches for computed values
-  - Conditional watches triggered only when condition is met
+### Milestone 2: Control Structures & Music Basics (Weeks 4-6)
+**User Outcome**: Ability to create programs with decision-making and repetition that produce musical output
 
-- **Execution Observations**:
-  - Block entry/exit events
-  - Thread lifecycle events
-  - Synchronization point notifications
-  - Error and exception events
+**Deliverables**:
+- If/else conditional execution
+- Loop structures implementation
+- Basic note playing capability
+- Simple timing mechanisms
 
-## Functional Specifications
+**Evaluation Criteria**:
+- Conditional blocks correctly control program flow
+- Loops repeat the specified number of times
+- Note blocks produce the correct pitches
+- Musical sequences play with basic timing
 
-### Core Programming Capabilities
+### Milestone 3: Functions & Enhanced Music (Weeks 7-8)
+**User Outcome**: Ability to create reusable musical patterns and more complex compositions
 
-#### Control Flow
+**Deliverables**:
+- Function/procedure blocks with parameters
+- Return value handling
+- Enhanced note properties (duration, volume)
+- Improved timing accuracy
 
-The Program Engine will support sophisticated control flow mechanisms:
+**Evaluation Criteria**:
+- Custom functions can be defined and called
+- Parameters correctly pass values to functions
+- Musical notes play with appropriate properties
+- Timing is consistent across musical sequences
 
-- **Conditional Structures**:
-  - Basic if/else with boolean condition
-  - Multi-branch conditionals (if/else if/else)
-  - Switch/case for multi-way branching
-  - Conditional expression evaluation (ternary operations)
+### Milestone 4: Concurrency & Synchronization (Weeks 9-10)
+**User Outcome**: Ability to create multi-part compositions with synchronized elements
 
-- **Loop Structures**:
-  - Count-controlled loops (repeat n times)
-  - Collection iteration loops (for each)
-  - Condition-controlled loops (while, until)
-  - Infinite loops with explicit break conditions
-  - Loop control statements (break, continue, exit)
+**Deliverables**:
+- Parallel execution system
+- Thread synchronization mechanisms
+- Resource management for shared components
+- Event-based execution triggers
 
-- **Subroutines and Procedures**:
-  - Named action blocks with parameter passing
-  - Return value handling
-  - Recursive calls with stack management
-  - Optional and default parameters
-  - Higher-order functions (functions as arguments)
+**Evaluation Criteria**:
+- Multiple block stacks can execute simultaneously
+- Parallel parts stay properly synchronized
+- Musical compositions maintain timing across parts
+- Events correctly trigger program execution
 
-- **Exception Handling**:
-  - Try/catch mechanisms for error recovery
-  - Custom exception types
-  - Finally blocks for cleanup operations
-  - Exception bubbling through call stack
+### Milestone 5: Error Handling & Refinement (Weeks 11-12)
+**User Outcome**: Improved reliability and user feedback
 
-#### Object-Oriented Patterns
+**Deliverables**:
+- Comprehensive error detection and reporting
+- Runtime recovery mechanisms
+- Performance optimizations
+- Basic debugging capabilities
 
-The engine will provide foundations for object-oriented programming:
-
-- **Object Representation**:
-  - Property-based objects with key-value storage
-  - Method attachment to objects
-  - Property access and mutation operations
-
-- **Prototype-based Inheritance**:
-  - Object cloning and extension
-  - Prototype chain for property resolution
-  - Method overriding and super calls
-
-- **Message Passing**:
-  - Method invocation on objects
-  - Dynamic dispatch based on object type
-  - Method delegation to prototypes
-
-#### Event-Driven Programming
-
-Enhanced event handling capabilities:
-
-- **Event Definition and Registration**:
-  - Define custom events with parameters
-  - Register event handlers with priorities
-  - Conditional event registration
-
-- **Event Broadcasting**:
-  - Trigger events from any execution context
-  - Broadcast to specific targets or globally
-  - Bubble events through containment hierarchy
-
-- **Event-Based Execution Model**:
-  - Start blocks triggered by events
-  - Event-based program initialization
-  - Wait-for-event blocks for synchronization
-  - Event listener lifetime management
+**Evaluation Criteria**:
+- Clear error messages help users identify problems
+- Programs can recover from non-fatal errors
+- Complex programs run without performance issues
+- Users can inspect program state during execution

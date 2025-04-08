@@ -545,7 +545,6 @@ sequenceDiagram
     ExecutionContext --> Scope
     ExecutionContext --> Timeline
     ExecutionManager --> ExecutionContext
-    ExecutionManager --> ConcurrencyManager
     Scope --> Scope : parent
 ```
 

@@ -1,15 +1,12 @@
 <!--markdownlint-disable-->
- ##### AST Structure Diagram
 
 ```mermaid
 classDiagram
     class ASTNode {
         <<abstract>>
         +id: string
-        +position: Point
-        +parent: ASTNode
         +clone()
-        +toString()
+        +validate()
     }
     
     class BlockNode {
@@ -19,100 +16,281 @@ classDiagram
     }
     
     class StatementNode {
-        +execute()
+        +execute(context: ExecutionContext)
     }
     
     class ArgumentNode {
-        +evaluate()
+        <<abstract>>
+        +resultType: DataType
+        +validate()
     }
     
-    class LoopBlockNode {
-        +iterations: number
-        +execute()
+    class LiteralArgumentNode {
+        +value: any
+        +evaluate(): any
     }
     
-    class ConditionalBlockNode {
-        +condition: ArgumentNode
-        +elseBlock: BlockNode
-        +evaluate()
-    }
-    
-    class NoteStatementNode {
-        +pitch: string
-        +duration: number
-        +volume: number
-        +execute()
-    }
-    
-    class VariableStatementNode {
-        +variableName: string
-        +value: ArgumentNode
-        +execute()
-    }
-    
-    class MathExpressionNode {
+    class ExpressionArgumentNode {
         +operator: string
         +operands: ArgumentNode[]
-        +evaluate()
+        +evaluate(context: ExecutionContext): any
     }
     
-    class LiteralValueNode {
-        +value: any
-        +type: string
-        +evaluate()
+    class ControlBlockNode {
+        +condition: ArgumentNode
+        +execute(context: ExecutionContext)
+    }
+    
+    class FunctionBlockNode {
+        +parameters: ParameterDefinition[]
+        +body: BlockNode
+        +execute(context: ExecutionContext, args: any[])
     }
     
     ASTNode <|-- BlockNode
     ASTNode <|-- StatementNode
     ASTNode <|-- ArgumentNode
     
-    BlockNode <|-- LoopBlockNode
-    BlockNode <|-- ConditionalBlockNode
+    ArgumentNode <|-- LiteralArgumentNode
+    ArgumentNode <|-- ExpressionArgumentNode
     
-    StatementNode <|-- NoteStatementNode
-    StatementNode <|-- VariableStatementNode
-    
-    ArgumentNode <|-- MathExpressionNode
-    ArgumentNode <|-- LiteralValueNode
+    BlockNode <|-- ControlBlockNode
+    BlockNode <|-- FunctionBlockNode
 ```
 
-
-##### Program Engine Architecture Diagram
 ```mermaid
-graph TB
-    subgraph "MB Engine"
-        AST["AST:- 
-        Stores program structure"]
-        Parser["Parser:- 
-        Traverses and validates AST"]
-        StateManager["State Manager:- 
-        Manages variables and execution state"]
-        Interpreter["Interpreter:- 
-        Executes program logic"]
-        Scheduler["Scheduler:- 
-        Handles time-based execution"]
-        ThreadManager["Thread Manager:- 
-        Manages concurrent execution paths"]
+flowchart TD
+    start[Program Construction] --> nodeCreation[Create Program Nodes]
+    nodeCreation --> connectNodes[Connect Nodes According to Grammar Rules]
+    connectNodes --> validation[Validate Structure]
+    
+    validation --> typeCheck[Type Compatibility Check]
+    validation --> structuralCheck[Structural Validation]
+    validation --> semanticCheck[Semantic Validation]
+    
+    typeCheck --> validationResult{Valid?}
+    structuralCheck --> validationResult
+    semanticCheck --> validationResult
+    
+    validationResult -- Yes --> readyToExecute[Ready for Execution]
+    validationResult -- No --> errorReport[Generate Validation Errors]
+    errorReport --> resolveErrors[Resolve Construction Errors]
+    resolveErrors --> connectNodes
+```
+
+```mermaid
+graph TD
+    subgraph "Execution State Management"
+        direction TB
+        global[Global Scope] --> func1[Function A Scope]
+        global --> func2[Function B Scope]
+        func1 --> nestedFunc[Nested Function Scope]
+        func1 --> loop[Loop Block Scope]
+        
+        global -->|x = 10| globalVar[Global Variable x]
+        func1 -->|y = 5| func1Var[Function Variable y]
+        func2 -->|x = 20| func2Var[Shadowed Variable x]
+        loop -->|i = 0...n| loopVar[Loop Variable i]
+        nestedFunc -->|z = 15| nestedVar[Nested Variable z]
+        
+        event[Variable Change] --> transaction[Transaction Manager]
+        transaction --> snapshot[State Snapshot]
+        transaction --> update[Atomic Update]
+        transaction --> rollback[Rollback Capability]
+    end
+```
+
+```mermaid
+graph TD
+    subgraph "Program Engine Framework"
+        AST["AST: Program representation model"]
+        Parser["Parser: Applies grammar rules to AST"]
+        StateManager["State Manager: Execution context & variables"]
+        Interpreter["Interpreter: Executes nodes according to operation rules"]
+        Timeline["Timeline Manager: Controls time-based execution"]
+        ConcurrencyManager["Concurrency Manager: Coordinates execution paths"]
     end
 
-    UILayer["UI Layer"] -.-> AST
-    AudioSystem["Audio System"] -.-> Interpreter
+    ExternalTree["External Program Tree"] -->|"Imported via"| AST
+    OutputSystems["Output Systems<br>(Audio, Visual, etc)"] <-->|"Register/Invoke"| Interpreter
 
-    Parser -->|reads from| AST
-    Interpreter -->|uses| Parser
-    Interpreter -->|accesses/modifies| StateManager
-    Interpreter -->|uses| Scheduler
-    ThreadManager -->|coordinates| Interpreter
-    ThreadManager -->|synchronizes| StateManager
+    Parser -->|"validates"| AST
+    Interpreter -->|"uses"| Parser
+    Interpreter -->|"maintains"| StateManager
+    Interpreter -->|"coordinates with"| Timeline
+    ConcurrencyManager -->|"schedules"| Interpreter
+    ConcurrencyManager -->|"synchronizes"| StateManager
 
     classDef component fill:#f9f,stroke:#333,stroke-width:2px;
     classDef external fill:#bbf,stroke:#33f,stroke-width:1px;
     
-    class AST,Parser,StateManager,Interpreter,Scheduler,ThreadManager component;
-    class UILayer,AudioSystem external;
+    class AST,Parser,StateManager,Interpreter,Timeline,ConcurrencyManager component;
+    class ExternalTree,OutputSystems external;
 ```
 
-**Node Metadata and Serialization**:
+```mermaid
+sequenceDiagram
+    participant AST as AST Tree
+    participant Parser as Parser
+    participant Interpreter as Interpreter
+    participant Context as ExecutionContext
+    participant State as StateManager
+    
+    Note over AST,State: Execution Start
+    
+    Interpreter->>Parser: parseNode(rootNode)
+    Parser->>AST: validateNode(rootNode)
+    AST-->>Parser: validationResult
+    
+    alt validation successful
+        Parser-->>Interpreter: validatedNode
+        Interpreter->>Context: prepareExecution(node)
+        Context->>State: createScope()
+        State-->>Context: newScope
+        
+        loop for each child node
+            Interpreter->>Parser: parseNode(childNode)
+            Parser-->>Interpreter: parsedChild
+            Interpreter->>Interpreter: executeNode(parsedChild)
+            Interpreter->>State: updateState(result)
+        end
+        
+        Interpreter->>Context: finalizeExecution()
+    else validation failed
+        Parser-->>Interpreter: validationError
+        Interpreter->>Context: handleError(validationError)
+    end
+```
+
+```mermaid
+   classDiagram
+    class ExecutionContext {
+        -variableScopes: Stack~Scope~
+        -globalScope: Scope
+        -timeline: Timeline
+        +createChildContext()
+        +getVariable(name: string): any
+        +setVariable(name: string, value: any)
+        +getCurrentTime(): number
+        +getCurrentScope(): Scope
+    }
+    
+    class Scope {
+        -variables: Map~string, any~
+        -parent: Scope
+        +getVariable(name: string): any
+        +setVariable(name: string, value: any)
+        +hasVariable(name: string): boolean
+    }
+    
+    class Timeline {
+        -currentTime: number
+        -timeScale: number
+        -scheduledEvents: PriorityQueue~Event~
+        +scheduleEvent(time: number, action: Function)
+        +advanceTime(duration: number)
+        +getCurrentTime(): number
+    }
+    
+    class ExecutionManager {
+        -activeContexts: Map~string, ExecutionContext~
+        -concurrencyManager: ConcurrencyManager
+        +createExecutionContext(): ExecutionContext
+        +executeProgram(ast: AST)
+        +pauseExecution()
+        +resumeExecution()
+    }
+    
+    ExecutionContext --> Scope
+    ExecutionContext --> Timeline
+    ExecutionManager --> ExecutionContext
+    ExecutionManager --> ConcurrencyManager
+    Scope --> Scope : parent
+```
+```mermaid
+flowchart TD
+    subgraph ConcurrencyManagement
+        direction TB
+        execPaths[Execution Paths] --> scheduler[Execution Scheduler]
+        scheduler --> activeContexts[Active Execution Contexts]
+        
+        activeContexts --> sync[Synchronization Points]
+        sync --> resourceManager[Shared Resource Manager]
+        
+        resourceManager --> locks[Resource Locks]
+        resourceManager --> waitQueues[Wait Queues]
+        
+        waitQueues --> scheduler
+    end
+    
+    subgraph ProcedureExecution
+        direction TB
+        mainProc[Main Procedure] --> nestedProc1[Nested Procedure 1]
+        mainProc --> nestedProc2[Nested Procedure 2]
+        nestedProc1 --> deepNested[Further Nested Procedure]
+        
+        mainProc --> concurrencyManager[Concurrency Manager]
+        nestedProc1 --> concurrencyManager
+        nestedProc2 --> concurrencyManager
+    end
+    
+    ProcedureExecution --> ConcurrencyManagement
+```
+
+```mermaid
+gantt
+    title Timeline-Based Execution
+    dateFormat  s
+    axisFormat %S
+    
+    section Execution Path 1
+    Block 1 Execution  :a1, 0, 2s
+    Block 2 Execution  :a2, after a1, 3s
+    
+    section Execution Path 2
+    Block 3 Execution  :b1, 1, 3s
+    Block 4 Execution  :b2, after b1, 2s
+    
+    section Synchronization
+    Synchronization Point  :milestone, m1, 4, 0d
+    Block 5 Execution  :c1, after m1, 2s
+    
+    section Timeline Controls
+    Pause  :p1, 2, 1s
+    Resume :after p1, 1s
+```
+
+```mermaid
+flowchart TD
+    subgraph ErrorHandling
+        detection[Error Detection] --> classification[Error Classification]
+        classification --> handling[Error Handling Strategy]
+        
+        classification --> structural[Structural Errors]
+        classification --> runtime[Runtime Errors]
+        classification --> type[Type Errors]
+        classification --> timing[Timing Errors]
+        
+        structural --> validationErr[Validation Error Service]
+        runtime --> executionErr[Execution Error Service]
+        type --> typeErr[Type Error Service]
+        timing --> timeErr[Timing Error Service]
+        
+        validationErr --> reporter[Error Reporter]
+        executionErr --> reporter
+        typeErr --> reporter
+        timeErr --> reporter
+        
+        reporter --> recovery[Recovery Strategy]
+        reporter --> notification[User Notification]
+        
+        recovery --> continue[Continue Execution]
+        recovery --> partial[Partial Execution]
+        recovery --> terminate[Terminate Execution]
+        recovery --> retry[Retry Operation]
+    end
+```
+
 ```mermaid
 flowchart TD
     subgraph Serialization
